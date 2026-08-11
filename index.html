@@ -639,23 +639,33 @@ let STATE = {
 };
 
 async function loadAll(){
-  STATE.teacher = await getData(STORAGE_KEYS.teacher, DEFAULT_TEACHER);
-  STATE.tracks = await getData(STORAGE_KEYS.tracks, [
-    {id: uid(), type:'specialization', name:'حفظ جديد', desc:'حفظ القرآن الكريم كاملاً أو أجزاء منه بمتابعة يومية', price:'15 ر.ع. / شهريًا', available:true},
-    {id: uid(), type:'specialization', name:'أحكام التجويد', desc:'دراسة أحكام التجويد نظريًا وتطبيقيًا حتى الإتقان', price:'12 ر.ع. / شهريًا', available:true},
-    {id: uid(), type:'specialization', name:'مراجعة وتثبيت', desc:'لمن سبق له الحفظ ويريد المراجعة والتثبيت', price:'10 ر.ع. / شهريًا', available:true},
-    {id: uid(), type:'course', name:'دورة تصحيح التلاوة', desc:'دورة مكثفة لمدة أسبوعين لتصحيح مخارج الحروف والتلاوة', price:'8 ر.ع.', available:true}
+  const [teacher, tracks, groups, students, attendance, evaluations, tasks] = await Promise.all([
+    getData(STORAGE_KEYS.teacher, DEFAULT_TEACHER),
+    getData(STORAGE_KEYS.tracks, [
+      {id: uid(), type:'specialization', name:'حفظ جديد', desc:'حفظ القرآن الكريم كاملاً أو أجزاء منه بمتابعة يومية', price:'15 ر.ع. / شهريًا', available:true},
+      {id: uid(), type:'specialization', name:'أحكام التجويد', desc:'دراسة أحكام التجويد نظريًا وتطبيقيًا حتى الإتقان', price:'12 ر.ع. / شهريًا', available:true},
+      {id: uid(), type:'specialization', name:'مراجعة وتثبيت', desc:'لمن سبق له الحفظ ويريد المراجعة والتثبيت', price:'10 ر.ع. / شهريًا', available:true},
+      {id: uid(), type:'course', name:'دورة تصحيح التلاوة', desc:'دورة مكثفة لمدة أسبوعين لتصحيح مخارج الحروف والتلاوة', price:'8 ر.ع.', available:true}
+    ]),
+    getData(STORAGE_KEYS.groups, []),
+    getData(STORAGE_KEYS.students, []),
+    getData(STORAGE_KEYS.attendance, []),
+    getData(STORAGE_KEYS.evaluations, []),
+    getData(STORAGE_KEYS.tasks, [])
   ]);
-  STATE.groups = await getData(STORAGE_KEYS.groups, []);
+
+  STATE.teacher = teacher;
+  STATE.tracks = tracks;
+  STATE.groups = groups;
   STATE.groups.forEach(g => {
     if(!Array.isArray(g.schedule) || g.schedule.length === 0){
       g.schedule = (g.day && g.time) ? [{day:g.day, time:g.time}] : [];
     }
   });
-  STATE.students = await getData(STORAGE_KEYS.students, []);
-  STATE.attendance = await getData(STORAGE_KEYS.attendance, []);
-  STATE.evaluations = await getData(STORAGE_KEYS.evaluations, []);
-  STATE.tasks = await getData(STORAGE_KEYS.tasks, []);
+  STATE.students = students;
+  STATE.attendance = attendance;
+  STATE.evaluations = evaluations;
+  STATE.tasks = tasks;
   STATE.teacherLoggedIn = sessionStorage.getItem('teacher_logged_in') === '1';
 }
 
