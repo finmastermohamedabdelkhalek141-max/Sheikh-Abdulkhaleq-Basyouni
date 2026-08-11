@@ -1979,8 +1979,8 @@ function sessionTrackingModal(group){
 
         <div class="hint" style="margin-bottom:6px;">الحضور اليوم</div>
         <div style="display:flex; gap:8px; margin-bottom:14px;">
-          <button type="button" class="btn btn-sm att-btn" data-status="present" style="${att&&att.status==='present' ? 'background:rgba(46,120,74,.35); border-color:#8FE3B0; color:#8FE3B0;' : ''}">✅ حاضر</button>
-          <button type="button" class="btn btn-sm att-btn" data-status="absent" style="${att&&att.status==='absent' ? 'background:rgba(181,83,60,.3); border-color:var(--clay); color:#F0B8A9;' : ''}">❌ غائب</button>
+          <button type="button" class="btn btn-sm att-btn" data-status="present" style="${att&&att.status==='present' ? 'background:#2E7D4F; border-color:#2E7D4F; color:#fff;' : ''}">✅ حاضر</button>
+          <button type="button" class="btn btn-sm att-btn" data-status="absent" style="${att&&att.status==='absent' ? 'background:#C0392B; border-color:#C0392B; color:#fff;' : ''}">❌ غائب</button>
         </div>
 
         <div class="hint" style="margin-bottom:6px;">التقييم</div>
@@ -2017,21 +2017,28 @@ function sessionTrackingModal(group){
 
   overlay.querySelectorAll('.att-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const sid = btn.closest('.group-card').dataset.sid;
+      const card = btn.closest('.group-card');
+      const sid = card.dataset.sid;
       await setAttendance(sid, group.id, today, btn.dataset.status);
       toast(btn.dataset.status==='present' ? 'تم تسجيل الحضور' : 'تم تسجيل الغياب');
-      overlay.remove();
-      sessionTrackingModal(group);
+      card.querySelectorAll('.att-btn').forEach(b => b.style = '');
+      if(btn.dataset.status === 'present'){ btn.style.background='#2E7D4F'; btn.style.borderColor='#2E7D4F'; btn.style.color='#fff'; }
+      else { btn.style.background='#C0392B'; btn.style.borderColor='#C0392B'; btn.style.color='#fff'; }
     });
   });
 
   overlay.querySelectorAll('.star-btn').forEach(btn => {
     btn.addEventListener('click', async () => {
-      const sid = btn.closest('.group-card').dataset.sid;
-      await setEvaluation(sid, group.id, today, Number(btn.dataset.rating));
+      const card = btn.closest('.group-card');
+      const sid = card.dataset.sid;
+      const newRating = Number(btn.dataset.rating);
+      await setEvaluation(sid, group.id, today, newRating);
       toast('تم حفظ التقييم');
-      overlay.remove();
-      sessionTrackingModal(group);
+      card.querySelectorAll('.star-btn').forEach(b => {
+        const n = Number(b.dataset.rating);
+        if(n <= newRating){ b.style.background='var(--gold)'; b.style.color='var(--ink)'; b.style.borderColor='var(--gold)'; b.textContent='★'; }
+        else { b.style = ''; b.textContent='☆'; }
+      });
     });
   });
 
