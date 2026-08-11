@@ -2016,29 +2016,35 @@ function sessionTrackingModal(group){
   `);
 
   overlay.querySelectorAll('.att-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
       const card = btn.closest('.group-card');
       const sid = card.dataset.sid;
-      await setAttendance(sid, group.id, today, btn.dataset.status);
-      toast(btn.dataset.status==='present' ? 'تم تسجيل الحضور' : 'تم تسجيل الغياب');
+
+      // تحديث فوري للواجهة قبل انتظار الحفظ في الخلفية
       card.querySelectorAll('.att-btn').forEach(b => b.style = '');
       if(btn.dataset.status === 'present'){ btn.style.background='#2E7D4F'; btn.style.borderColor='#2E7D4F'; btn.style.color='#fff'; }
       else { btn.style.background='#C0392B'; btn.style.borderColor='#C0392B'; btn.style.color='#fff'; }
+      toast(btn.dataset.status==='present' ? 'تم تسجيل الحضور' : 'تم تسجيل الغياب');
+
+      setAttendance(sid, group.id, today, btn.dataset.status);
     });
   });
 
   overlay.querySelectorAll('.star-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
       const card = btn.closest('.group-card');
       const sid = card.dataset.sid;
       const newRating = Number(btn.dataset.rating);
-      await setEvaluation(sid, group.id, today, newRating);
-      toast('تم حفظ التقييم');
+
+      // تحديث فوري للواجهة قبل انتظار الحفظ في الخلفية
       card.querySelectorAll('.star-btn').forEach(b => {
         const n = Number(b.dataset.rating);
         if(n <= newRating){ b.style.background='var(--gold)'; b.style.color='var(--ink)'; b.style.borderColor='var(--gold)'; b.textContent='★'; }
         else { b.style = ''; b.textContent='☆'; }
       });
+      toast('تم حفظ التقييم');
+
+      setEvaluation(sid, group.id, today, newRating);
     });
   });
 
@@ -2051,9 +2057,9 @@ function sessionTrackingModal(group){
   });
 
   overlay.querySelectorAll('.toggle-task-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
       const tid = btn.closest('[data-tid]').dataset.tid;
-      await toggleTaskDone(tid);
+      toggleTaskDone(tid); // بدون await — التحديث المحلي على STATE يحصل فورًا قبل أي انتظار للشبكة
       overlay.remove();
       sessionTrackingModal(group);
     });
@@ -2071,10 +2077,10 @@ function sessionTrackingModal(group){
   });
 
   overlay.querySelectorAll('.delete-task-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
+    btn.addEventListener('click', () => {
       const tid = btn.closest('[data-tid]').dataset.tid;
       if(!confirm('هل تريد حذف هذه المهمة؟')) return;
-      await deleteTask(tid);
+      deleteTask(tid); // بدون await
       toast('تم حذف المهمة');
       overlay.remove();
       sessionTrackingModal(group);
@@ -2094,16 +2100,16 @@ function taskFormModal(student, group, existingTask){
     <div class="field"><label>موعد التسليم (اختياري)</label><input id="task-due" type="date" value="${existingTask && existingTask.dueDate ? existingTask.dueDate : ''}"></div>
     <button class="btn btn-primary btn-full" id="task-save">${isEdit ? 'حفظ التعديلات' : 'حفظ التكليف'}</button>
   `);
-  overlay.querySelector('#task-save').addEventListener('click', async () => {
+  overlay.querySelector('#task-save').addEventListener('click', () => {
     const title = overlay.querySelector('#task-title').value.trim();
     const note = overlay.querySelector('#task-note').value.trim();
     const due = overlay.querySelector('#task-due').value;
     if(!title){ toast('اكتب عنوان المهمة'); return; }
     if(isEdit){
-      await updateTask(existingTask.id, title, note, due);
+      updateTask(existingTask.id, title, note, due); // بدون await
       toast('تم حفظ تعديلات المهمة');
     } else {
-      await addTask(student.id, group.id, title, note, due);
+      addTask(student.id, group.id, title, note, due); // بدون await
       toast('تم تكليف الطالب بالمهمة');
     }
     overlay.remove();
