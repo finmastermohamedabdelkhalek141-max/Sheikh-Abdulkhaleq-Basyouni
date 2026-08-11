@@ -455,12 +455,14 @@ function getAudioCtx(){
     try{ audioCtx = new (window.AudioContext || window.webkitAudioContext)(); }
     catch(e){ return null; }
   }
-  if(audioCtx.state === 'suspended') audioCtx.resume();
   return audioCtx;
 }
-function playTone(freqs, opts){
+async function playTone(freqs, opts){
   const ctx = getAudioCtx();
   if(!ctx) return;
+  if(ctx.state === 'suspended'){
+    try{ await ctx.resume(); }catch(e){ return; }
+  }
   const {duration=0.09, type='sine', gain=0.09, stagger=0.045, decay=true} = opts || {};
   freqs.forEach((f, i) => {
     const osc = ctx.createOscillator();
