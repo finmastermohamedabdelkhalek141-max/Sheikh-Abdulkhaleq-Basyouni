@@ -457,6 +457,12 @@ function getAudioCtx(){
   }
   return audioCtx;
 }
+function unlockAudio(){
+  const ctx = getAudioCtx();
+  if(ctx && ctx.state === 'suspended'){
+    ctx.resume().catch(()=>{});
+  }
+}
 async function playTone(freqs, opts){
   const ctx = getAudioCtx();
   if(!ctx) return;
@@ -533,11 +539,16 @@ function resolveButtonSound(btn){
   if(cls.includes('btn-ghost')) return BUTTON_SOUNDS.ghost;
   return BUTTON_SOUNDS.generic;
 }
+document.addEventListener('pointerdown', unlockAudio, true);
+document.addEventListener('touchstart', unlockAudio, true, {passive:true});
+document.addEventListener('keydown', unlockAudio, true);
+
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('button, a.btn, .tab-btn, #open-phone-login');
   if(!btn) return;
+  unlockAudio();
   const play = resolveButtonSound(btn);
-  try{ play(); }catch(err){ }
+  try{ play(); }catch(err){ console.error('sound error', err); }
 }, true);
 
 const STATE_KEY_BY_STORAGE_KEY = {
