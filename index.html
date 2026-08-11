@@ -662,6 +662,8 @@ function resolveButtonSound(btn){
     ['remove-sch-row', 'remove_row'],
     ['edit-track-btn', 'edit'],
     ['edit-group-btn', 'edit'],
+    ['edit-task-btn', 'edit'],
+    ['delete-task-btn', 'delete'],
     ['toggle-task-btn', 'toggle'],
     ['toggle-avail-btn', 'toggle'],
     ['student-toggle-task-btn', 'student_toggle'],
@@ -1085,7 +1087,6 @@ function renderStudentProgressSection(me, group){
         ${t.note ? `<div style="font-size:12.5px; color:var(--cream-dim); margin-top:3px;">${esc(t.note)}</div>` : ''}
         ${t.dueDate ? `<div style="font-size:12px; color:var(--cream-dim); margin-top:3px;">حتى ${esc(t.dueDate)}</div>` : ''}
       </div>
-      <button type="button" class="btn btn-ghost btn-sm student-toggle-task-btn">${t.status==='done'?'إلغاء الإنجاز':'تحديد كمنجَزة'}</button>
     </div>
   `;
 
@@ -1280,6 +1281,16 @@ async function toggleTaskDone(taskId){
   t.doneAt = t.status === 'done' ? Date.now() : null;
   await setData(STORAGE_KEYS.tasks, STATE.tasks);
 }
+async function updateTask(taskId, title, note, dueDate){
+  const t = STATE.tasks.find(x => x.id === taskId);
+  if(!t) return;
+  t.title = title; t.note = note; t.dueDate = dueDate;
+  await setData(STORAGE_KEYS.tasks, STATE.tasks);
+}
+async function deleteTask(taskId){
+  STATE.tasks = STATE.tasks.filter(x => x.id !== taskId);
+  await setData(STORAGE_KEYS.tasks, STATE.tasks);
+}
 function studentAttendanceStats(studentId, groupId){
   const recs = STATE.attendance.filter(a => a.studentId===studentId && a.groupId===groupId);
   const present = recs.filter(r => r.status==='present').length;
@@ -1345,15 +1356,6 @@ function bindStudentEvents(){
       overlay.querySelector('#login-phone').addEventListener('keydown', e2 => { if(e2.key==='Enter') overlay.querySelector('#login-phone-btn').click(); });
     });
   }
-
-  // الطالب يقدر يحدد مهامه كمنجَزة بنفسه (أو يلغي الإنجاز)
-  document.querySelectorAll('.student-toggle-task-btn').forEach(btn => {
-    btn.addEventListener('click', async () => {
-      const tid = btn.closest('[data-tid]').dataset.tid;
-      await toggleTaskDone(tid);
-      render();
-    });
-  });
 
   let selectedTrackId = null;
   const allTrackOptions = document.querySelectorAll('#tracks-list-spec .track-option, #tracks-list-course .track-option');
@@ -1990,9 +1992,13 @@ function sessionTrackingModal(group){
         <button type="button" class="btn btn-ghost btn-sm add-task-btn">📝 تكليف بمهمة جديدة</button>
         <div class="task-list" style="margin-top:10px;">
           ${studentTasks.map(t => `
-            <div class="reminder-row ${t.status==='done'?'':'active'}" data-tid="${t.id}" style="justify-content:space-between; align-items:center;">
+            <div class="reminder-row ${t.status==='done'?'':'active'}" data-tid="${t.id}" style="justify-content:space-between; align-items:center; gap:8px; flex-wrap:wrap;">
               <span>${t.status==='done'?'✅':'🕗'} ${esc(t.title)}${t.dueDate?` <span style="color:var(--cream-dim); font-size:12px;">(حتى ${esc(t.dueDate)})</span>`:''}</span>
-              <button type="button" class="btn btn-ghost btn-sm toggle-task-btn">${t.status==='done'?'إلغاء الإنجاز':'تحديد كمنجَزة'}</button>
+              <div style="display:flex; gap:6px; flex-wrap:wrap;">
+                <button type="button" class="btn btn-ghost btn-sm toggle-task-btn">${t.status==='done'?'إلغاء الإنجاز':'تحديد كمنجَزة'}</button>
+                <button type="button" class="btn btn-ghost btn-sm edit-task-btn">✏️ تعديل</button>
+                <button type="button" class="btn btn-ghost btn-sm btn-danger delete-task-btn">🗑️ حذف</button>
+              </div>
             </div>
           `).join('') || '<div class="hint">لا توجد مهام مكلَّف بها بعد</div>'}
         </div>
@@ -2046,26 +2052,54 @@ function sessionTrackingModal(group){
     });
   });
 
+  overlay.querySelectorAll('.edit-task-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const tid = btn.closest('[data-tid]').dataset.tid;
+      const sid = btn.closest('.group-card').dataset.sid;
+      const student = members.find(m => m.id === sid);
+      const task = STATE.tasks.find(t => t.id === tid);
+      if(!task) return;
+      taskFormModal(student, group, task);
+    });
+  });
+
+  overlay.querySelectorAll('.delete-task-btn').forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const tid = btn.closest('[data-tid]').dataset.tid;
+      if(!confirm('هل تريد حذف هذه المهمة؟')) return;
+      await deleteTask(tid);
+      toast('تم حذف المهمة');
+      overlay.remove();
+      sessionTrackingModal(group);
+    });
+  });
+
   const closeBtn = overlay.querySelector('#close-session-modal');
   if(closeBtn) closeBtn.addEventListener('click', () => overlay.remove());
 }
 
-function taskFormModal(student, group){
+function taskFormModal(student, group, existingTask){
+  const isEdit = !!existingTask;
   const overlay = showModal(`
-    <h2 class="section-title">تكليف مهمة — ${esc(student.name)}</h2>
-    <div class="field"><label>عنوان المهمة</label><input id="task-title" placeholder="مثال: حفظ سورة الملك"></div>
-    <div class="field"><label>تفاصيل إضافية (اختياري)</label><input id="task-note" placeholder="ملاحظات عن المهمة"></div>
-    <div class="field"><label>موعد التسليم (اختياري)</label><input id="task-due" type="date"></div>
-    <button class="btn btn-primary btn-full" id="task-save">حفظ التكليف</button>
+    <h2 class="section-title">${isEdit ? 'تعديل المهمة' : 'تكليف مهمة'} — ${esc(student.name)}</h2>
+    <div class="field"><label>عنوان المهمة</label><input id="task-title" placeholder="مثال: حفظ سورة الملك" value="${esc(existingTask ? existingTask.title : '')}"></div>
+    <div class="field"><label>تفاصيل إضافية (اختياري)</label><input id="task-note" placeholder="ملاحظات عن المهمة" value="${esc(existingTask ? (existingTask.note||'') : '')}"></div>
+    <div class="field"><label>موعد التسليم (اختياري)</label><input id="task-due" type="date" value="${existingTask && existingTask.dueDate ? existingTask.dueDate : ''}"></div>
+    <button class="btn btn-primary btn-full" id="task-save">${isEdit ? 'حفظ التعديلات' : 'حفظ التكليف'}</button>
   `);
   overlay.querySelector('#task-save').addEventListener('click', async () => {
     const title = overlay.querySelector('#task-title').value.trim();
     const note = overlay.querySelector('#task-note').value.trim();
     const due = overlay.querySelector('#task-due').value;
     if(!title){ toast('اكتب عنوان المهمة'); return; }
-    await addTask(student.id, group.id, title, note, due);
+    if(isEdit){
+      await updateTask(existingTask.id, title, note, due);
+      toast('تم حفظ تعديلات المهمة');
+    } else {
+      await addTask(student.id, group.id, title, note, due);
+      toast('تم تكليف الطالب بالمهمة');
+    }
     overlay.remove();
-    toast('تم تكليف الطالب بالمهمة');
     sessionTrackingModal(group);
   });
 }
